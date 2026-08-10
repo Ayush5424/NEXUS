@@ -1,8 +1,10 @@
 package com.NEXUS.NEXUS.task;
 
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.UUID;
 
 @RestController
@@ -17,12 +19,14 @@ public class TaskController {
 
     @PostMapping
     public ResponseEntity<Task> createTask(
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestBody CreateTaskRequest request
     ) {
 
         Task task = taskService.acceptTask(
                 request.type(),
-                request.payload()
+                request.payload(),
+                idempotencyKey
         );
 
         return ResponseEntity
@@ -30,17 +34,19 @@ public class TaskController {
                 .body(task);
     }
 
-    public record CreateTaskRequest(
-            String type,
-            String payload
-    ) {
-    }
-
     @GetMapping("/{id}")
-    public ResponseEntity<Task> getTask(@PathVariable UUID id) {
+    public ResponseEntity<Task> getTask(
+            @PathVariable UUID id
+    ) {
 
         return taskService.getTask(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    public record CreateTaskRequest(
+            String type,
+            String payload
+    ) {
     }
 }

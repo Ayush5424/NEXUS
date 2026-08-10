@@ -4,6 +4,7 @@ import com.NEXUS.NEXUS.event.EventStore;
 import com.NEXUS.NEXUS.event.EventType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,11 +23,23 @@ public class TaskService {
     }
 
     @Transactional
-    public Task acceptTask(String type, String payload) {
+    public Task acceptTask(
+            String type,
+            String payload,
+            String idempotencyKey
+    ) {
+
+        Optional<Task> existingTask =
+                taskRepository.findByIdempotencyKey(idempotencyKey);
+
+        if (existingTask.isPresent()) {
+            return existingTask.get();
+        }
 
         Task task = new Task(
                 type,
                 payload,
+                idempotencyKey,
                 3
         );
 

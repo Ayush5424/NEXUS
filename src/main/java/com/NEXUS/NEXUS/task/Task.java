@@ -1,11 +1,21 @@
 package com.NEXUS.NEXUS.task;
+
+
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "tasks")
+@Table(
+        name = "tasks",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_task_idempotency_key",
+                        columnNames = "idempotency_key"
+                )
+        }
+)
 public class Task {
 
     @Id
@@ -17,6 +27,9 @@ public class Task {
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String payload;
+
+    @Column(name = "idempotency_key", nullable = false, unique = true)
+    private String idempotencyKey;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -39,9 +52,15 @@ public class Task {
     protected Task() {
     }
 
-    public Task(String type, String payload, int maxAttempts) {
+    public Task(
+            String type,
+            String payload,
+            String idempotencyKey,
+            int maxAttempts
+    ) {
         this.type = type;
         this.payload = payload;
+        this.idempotencyKey = idempotencyKey;
         this.maxAttempts = maxAttempts;
         this.status = TaskStatus.ACCEPTED;
         this.attemptCount = 0;
@@ -59,6 +78,10 @@ public class Task {
 
     public String getPayload() {
         return payload;
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
     }
 
     public TaskStatus getStatus() {
