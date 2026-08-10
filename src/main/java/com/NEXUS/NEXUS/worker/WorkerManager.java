@@ -4,10 +4,13 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 public class WorkerManager {
+
+    private static final int MAX_RESTARTS = 3;
 
     private final WorkerRepository workerRepository;
 
@@ -20,7 +23,7 @@ public class WorkerManager {
 
         if (!workerRepository.existsById("worker-1")) {
             workerRepository.save(
-                    new WorkerEntity("worker-1", 3)
+                    new WorkerEntity("worker-1", MAX_RESTARTS)
             );
         }
     }
@@ -39,12 +42,14 @@ public class WorkerManager {
     }
 
     @Transactional
-    public void stopWorker(String workerId) {
+    public void heartbeat(String workerId) {
 
         WorkerEntity worker = getWorker(workerId);
-        worker.stop();
 
-        workerRepository.save(worker);
+        if (worker.getStatus() == WorkerStatus.RUNNING) {
+            worker.heartbeat();
+            workerRepository.save(worker);
+        }
     }
 
     @Transactional
@@ -62,27 +67,60 @@ public class WorkerManager {
     }
 
     @Transactional
+    public void stopWorker(String workerId) {
+
+        WorkerEntity worker = getWorker(workerId);
+
+        worker.stop();
+
+        workerRepository.save(worker);
+    }
+
+    @Transactional
     public void restartWorker(String workerId) {
 
         WorkerEntity worker = getWorker(workerId);
 
         if (worker.getRestartCount() >= worker.getMaxRestarts()) {
             worker.markOutOfService();
-        } else {
-            worker.markRestarting();
-            worker.restart();
+            workerRepository.save(worker);
+            return;
         }
 
+        worker.markRestarting();
+        workerRepository.save(worker);
+
+        worker.restart();
         workerRepository.save(worker);
     }
 
     @Transactional
-    public void heartbeat(String workerId) {
+    public void checkWorkerHealth(String workerId) {
 
         WorkerEntity worker = getWorker(workerId);
 
-        worker.heartbeat();
+        if (worker.getStatus() != WorkerStatus.RUNNING) {
+            return;
+        }
 
-        workerRepository.save(worker);
+        LocalDateTime timeout =
+                LocalDateTime.now().minusSeconds(10);
+
+        if (worker.getLastHeartbeat().isBefore(timeout)) {
+
+            worker.markRestarting();
+            workerRepository.save(worker);
+
+            if (worker.getRestartCount() < worker.getMaxRestarts()) {
+
+                worker.restart();
+                workerRepository.save(worker);
+
+            } else {
+
+                worker.markOutOfService();
+                workerRepository.save(worker);
+            }
+        }
     }
 }

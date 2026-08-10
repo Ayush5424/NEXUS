@@ -2,13 +2,14 @@ package com.NEXUS.NEXUS.worker;
 
 
 
+import com.NEXUS.NEXUS.event.EventStore;
+import com.NEXUS.NEXUS.event.EventType;
 import com.NEXUS.NEXUS.retry.RetryManager;
 import com.NEXUS.NEXUS.task.Task;
 import com.NEXUS.NEXUS.task.TaskRepository;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.NEXUS.NEXUS.event.EventStore;
-import com.NEXUS.NEXUS.event.EventType;
 
 @Service
 public class WorkerService implements Worker {
@@ -34,11 +35,23 @@ public class WorkerService implements Worker {
         this.workerManager = workerManager;
     }
 
+    @Scheduled(fixedRate = 3000)
+    public void sendHeartbeat() {
+
+        WorkerEntity worker =
+                workerManager.getWorker(workerId);
+
+        if (worker.getStatus() == WorkerStatus.RUNNING) {
+            workerManager.heartbeat(workerId);
+        }
+    }
+
     @Override
     @Transactional
     public void process(Task task) {
 
-        WorkerEntity worker = workerManager.getWorker(workerId);
+        WorkerEntity worker =
+                workerManager.getWorker(workerId);
 
         if (worker.getStatus() != WorkerStatus.RUNNING) {
             return;
@@ -50,7 +63,8 @@ public class WorkerService implements Worker {
         eventStore.record(
                 task.getId(),
                 EventType.TASK_STARTED,
-                "Worker " + workerId + " started processing task"
+                "Worker " + workerId +
+                        " started processing task"
         );
 
         try {
@@ -71,7 +85,8 @@ public class WorkerService implements Worker {
             eventStore.record(
                     task.getId(),
                     EventType.TASK_COMPLETED,
-                    "Worker " + workerId + " completed task"
+                    "Worker " + workerId +
+                            " completed task"
             );
 
         } catch (Exception e) {
@@ -109,6 +124,7 @@ public class WorkerService implements Worker {
 
     @Override
     public WorkerStatus getStatus() {
+
         return workerManager
                 .getWorker(workerId)
                 .getStatus();
