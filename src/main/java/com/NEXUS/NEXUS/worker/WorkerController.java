@@ -1,5 +1,6 @@
 package com.NEXUS.NEXUS.worker;
 
+import com.NEXUS.NEXUS.event.EventStore;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -7,6 +8,8 @@ import org.springframework.web.bind.annotation.*;
 public class WorkerController {
 
     private final WorkerService workerService;
+
+
 
     public WorkerController(WorkerService workerService) {
         this.workerService = workerService;

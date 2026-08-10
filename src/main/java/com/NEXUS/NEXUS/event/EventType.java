@@ -1,0 +1,11 @@
+package com.NEXUS.NEXUS.event;
+
+public enum EventType {
+
+    TASK_ACCEPTED,
+    TASK_STARTED,
+    TASK_COMPLETED,
+    TASK_FAILED,
+    TASK_RETRY_SCHEDULED,
+    TASK_DEAD_LETTERED
+}
