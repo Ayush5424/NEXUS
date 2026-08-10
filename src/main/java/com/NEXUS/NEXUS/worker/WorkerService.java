@@ -16,75 +16,74 @@ public class WorkerService implements Worker {
     private final TaskRepository taskRepository;
     private final RetryManager retryManager;
     private final EventStore eventStore;
+    private final WorkerManager workerManager;
 
     private final String workerId = "worker-1";
-
-    private WorkerStatus status = WorkerStatus.RUNNING;
 
     private boolean failMode = false;
 
     public WorkerService(
             TaskRepository taskRepository,
             RetryManager retryManager,
-            EventStore eventStore
+            EventStore eventStore,
+            WorkerManager workerManager
     ) {
         this.taskRepository = taskRepository;
         this.retryManager = retryManager;
         this.eventStore = eventStore;
+        this.workerManager = workerManager;
     }
 
     @Override
     @Transactional
     public void process(Task task) {
 
-        if (status != WorkerStatus.RUNNING) {
+        WorkerEntity worker = workerManager.getWorker(workerId);
+
+        if (worker.getStatus() != WorkerStatus.RUNNING) {
             return;
         }
 
         task.markProcessing();
         taskRepository.save(task);
+
         eventStore.record(
                 task.getId(),
                 EventType.TASK_STARTED,
                 "Worker " + workerId + " started processing task"
         );
 
-        System.out.println(
-                "Worker " + workerId +
-                        " processing task " + task.getId()
-        );
-
         try {
 
             if (failMode) {
-                throw new RuntimeException("Simulated worker failure");
+                throw new RuntimeException(
+                        "Simulated worker failure"
+                );
             }
 
             Thread.sleep(1000);
 
             task.markCompleted();
             taskRepository.save(task);
+
+            workerManager.heartbeat(workerId);
+
             eventStore.record(
                     task.getId(),
                     EventType.TASK_COMPLETED,
                     "Worker " + workerId + " completed task"
             );
 
-            System.out.println(
-                    "Worker " + workerId +
-                            " completed task " + task.getId()
-            );
-
         } catch (Exception e) {
 
-            System.out.println(
-                    "Worker " + workerId +
-                            " failed task " + task.getId()
-            );
+            workerManager.recordFailure(workerId);
+
             eventStore.record(
                     task.getId(),
                     EventType.TASK_FAILED,
-                    "Worker " + workerId + " failed task"
+                    "Worker " + workerId +
+                            " failed task: " +
+                            e.getMessage()
             );
 
             retryManager.handleFailure(task);
@@ -110,6 +109,8 @@ public class WorkerService implements Worker {
 
     @Override
     public WorkerStatus getStatus() {
-        return status;
+        return workerManager
+                .getWorker(workerId)
+                .getStatus();
     }
 }
