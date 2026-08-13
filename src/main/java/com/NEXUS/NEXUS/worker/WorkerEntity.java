@@ -3,7 +3,6 @@ package com.NEXUS.NEXUS.worker;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "workers")
@@ -33,10 +32,10 @@ public class WorkerEntity {
 
     public WorkerEntity(String workerId, int maxRestarts) {
         this.workerId = workerId;
+        this.maxRestarts = maxRestarts;
         this.status = WorkerStatus.RUNNING;
         this.failureCount = 0;
         this.restartCount = 0;
-        this.maxRestarts = maxRestarts;
         this.lastHeartbeat = LocalDateTime.now();
     }
 
@@ -65,29 +64,29 @@ public class WorkerEntity {
     }
 
     public void heartbeat() {
-        this.lastHeartbeat = LocalDateTime.now();
+        lastHeartbeat = LocalDateTime.now();
     }
 
     public void recordFailure() {
-        this.failureCount++;
-        this.lastHeartbeat = LocalDateTime.now();
+        failureCount++;
+        lastHeartbeat = LocalDateTime.now();
     }
 
     public void restart() {
-        this.restartCount++;
-        this.status = WorkerStatus.RUNNING;
-        this.lastHeartbeat = LocalDateTime.now();
+        restartCount++;
+        status = WorkerStatus.RUNNING;
+        lastHeartbeat = LocalDateTime.now();
     }
 
     public void stop() {
-        this.status = WorkerStatus.STOPPED;
+        status = WorkerStatus.STOPPED;
     }
 
     public void markRestarting() {
-        this.status = WorkerStatus.RESTARTING;
+        status = WorkerStatus.RESTARTING;
     }
 
     public void markOutOfService() {
-        this.status = WorkerStatus.OUT_OF_SERVICE;
+        status = WorkerStatus.OUT_OF_SERVICE;
     }
 }

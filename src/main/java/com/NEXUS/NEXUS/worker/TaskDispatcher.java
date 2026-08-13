@@ -25,18 +25,31 @@ public class TaskDispatcher {
         this.workerService = workerService;
     }
 
-    @Scheduled(fixedDelay = 1000)
+    @Scheduled(fixedDelay = 500)
     public void dispatchTasks() {
+        System.out.println("NEXUS DISPATCHER RUNNING");
 
-        if (workerService.getStatus() != WorkerStatus.RUNNING) {
+        if (workerService.getAvailableWorkers().isEmpty()) {
             return;
         }
 
         List<Task> acceptedTasks =
-                taskRepository.findByStatus(TaskStatus.ACCEPTED);
+                taskRepository.findByStatus(
+                        TaskStatus.ACCEPTED
+                );
 
         for (Task task : acceptedTasks) {
-            workerService.process(task);
+
+            int claimed = taskRepository.claimTask(
+                    task.getId(),
+                    TaskStatus.ACCEPTED,
+                    TaskStatus.PROCESSING,
+                    LocalDateTime.now()
+            );
+
+            if (claimed == 1) {
+                workerService.process(task);
+            }
         }
 
         List<Task> retryTasks =

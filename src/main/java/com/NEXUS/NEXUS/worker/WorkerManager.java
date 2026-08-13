@@ -21,9 +21,20 @@ public class WorkerManager {
     @PostConstruct
     public void initialize() {
 
-        if (!workerRepository.existsById("worker-1")) {
+        createIfMissing("worker-1");
+        createIfMissing("worker-2");
+        createIfMissing("worker-3");
+    }
+
+    private void createIfMissing(String workerId) {
+
+        if (!workerRepository.existsById(workerId)) {
+
             workerRepository.save(
-                    new WorkerEntity("worker-1", MAX_RESTARTS)
+                    new WorkerEntity(
+                            workerId,
+                            MAX_RESTARTS
+                    )
             );
         }
     }
@@ -33,6 +44,7 @@ public class WorkerManager {
     }
 
     public WorkerEntity getWorker(String workerId) {
+
         return workerRepository.findById(workerId)
                 .orElseThrow(() ->
                         new IllegalArgumentException(
@@ -82,15 +94,15 @@ public class WorkerManager {
         WorkerEntity worker = getWorker(workerId);
 
         if (worker.getRestartCount() >= worker.getMaxRestarts()) {
+
             worker.markOutOfService();
-            workerRepository.save(worker);
-            return;
+
+        } else {
+
+            worker.markRestarting();
+            worker.restart();
         }
 
-        worker.markRestarting();
-        workerRepository.save(worker);
-
-        worker.restart();
         workerRepository.save(worker);
     }
 
@@ -114,13 +126,13 @@ public class WorkerManager {
             if (worker.getRestartCount() < worker.getMaxRestarts()) {
 
                 worker.restart();
-                workerRepository.save(worker);
 
             } else {
 
                 worker.markOutOfService();
-                workerRepository.save(worker);
             }
+
+            workerRepository.save(worker);
         }
     }
 }
