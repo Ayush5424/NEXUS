@@ -127,4 +127,8 @@ public class Task {
         this.status = TaskStatus.DEAD_LETTER;
         this.updatedAt = LocalDateTime.now();
     }
+    public void setStatus(TaskStatus status) {
+        this.status = status;
+        this.updatedAt = LocalDateTime.now();
+    }
 }

@@ -7,5 +7,7 @@ import java.util.UUID;
 
 public interface EventRepository extends JpaRepository<Event, UUID> {
 
+    List<Event> findTop100ByOrderByCreatedAtDesc();
+
     List<Event> findByTaskIdOrderByCreatedAtAsc(UUID taskId);
 }

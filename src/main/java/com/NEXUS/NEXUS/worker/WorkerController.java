@@ -36,6 +36,25 @@ public class WorkerController {
         return workerService.getStatus();
     }
 
+    @PostMapping
+    public WorkerEntity createWorker(
+            @RequestParam(required = false) String workerId
+    ) {
+        if (workerId == null || workerId.isBlank()) {
+            workerId = "worker-" + System.currentTimeMillis();
+        }
+
+        return workerManager.createWorker(workerId);
+    }
+
+    @DeleteMapping("/{workerId}")
+    public String deleteWorker(
+            @PathVariable String workerId
+    ) {
+        workerManager.deleteWorker(workerId);
+        return "Worker " + workerId + " deleted";
+    }
+
     @PostMapping("/{workerId}/stop")
     public String stopWorker(
             @PathVariable String workerId

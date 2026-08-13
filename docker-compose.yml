@@ -1,0 +1,7 @@
+#!/bin/bash
+echo "Starting NEXUS Platform..."
+  # Build and run backend in background
+mvn clean package -DskipTests
+java -jar target/*.jar &
+  # Start frontend
+cd frontend && npm install && npm run dev

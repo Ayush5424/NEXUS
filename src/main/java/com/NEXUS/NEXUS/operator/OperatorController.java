@@ -1,134 +1,72 @@
 package com.NEXUS.NEXUS.operator;
 
-import com.NEXUS.NEXUS.event.Event;
-import com.NEXUS.NEXUS.event.EventRepository;
-import com.NEXUS.NEXUS.task.Task;
 import com.NEXUS.NEXUS.task.TaskRepository;
 import com.NEXUS.NEXUS.task.TaskStatus;
-import com.NEXUS.NEXUS.worker.WorkerEntity;
 import com.NEXUS.NEXUS.worker.WorkerManager;
+import com.NEXUS.NEXUS.worker.WorkerRepository;
+import com.NEXUS.NEXUS.worker.WorkerStatus;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/operator")
 public class OperatorController {
 
     private final TaskRepository taskRepository;
-    private final EventRepository eventRepository;
+    private final WorkerRepository workerRepository;
     private final WorkerManager workerManager;
     private final FailureSimulator failureSimulator;
 
-    public OperatorController(
-            TaskRepository taskRepository,
-            EventRepository eventRepository,
-            WorkerManager workerManager,
-            FailureSimulator failureSimulator
-    ) {
+    public OperatorController(TaskRepository taskRepository,
+                              WorkerRepository workerRepository,
+                              WorkerManager workerManager,
+                              FailureSimulator failureSimulator) {
         this.taskRepository = taskRepository;
-        this.eventRepository = eventRepository;
+        this.workerRepository = workerRepository;
         this.workerManager = workerManager;
         this.failureSimulator = failureSimulator;
     }
 
-    @GetMapping("/status")
-    public OperatorStatus getStatus() {
+    // R-12: Human-readable diagnostic engine for 90-second assessment[cite: 1]
+    @GetMapping("/diagnostics")
+    public Map<String, Object> getDiagnostics() {
+        long deadLetterCount = taskRepository.countByStatus(TaskStatus.DEAD_LETTER);
+        long outOfServiceWorkers = workerRepository.countByStatus(WorkerStatus.OUT_OF_SERVICE);
+        long queuedTasks = taskRepository.countByStatus(TaskStatus.ACCEPTED);
 
-        return new OperatorStatus(
-                taskRepository.count(),
-                taskRepository.countByStatus(TaskStatus.ACCEPTED),
-                taskRepository.countByStatus(TaskStatus.PROCESSING),
-                taskRepository.countByStatus(TaskStatus.COMPLETED),
-                taskRepository.countByStatus(TaskStatus.RETRYING),
-                taskRepository.countByStatus(TaskStatus.DEAD_LETTER),
-                failureSimulator.getMode(),
-                workerManager.getWorkers()
+        String status = "HEALTHY";
+        String summary = "System operating normally. Workers active and queue backlog clear.";
+
+        if (outOfServiceWorkers > 0) {
+            status = "CRITICAL";
+            summary = String.format("CRITICAL: %d worker(s) hit crash-loop limit and are OUT OF SERVICE.", outOfServiceWorkers);
+        } else if (deadLetterCount > 0) {
+            status = "WARNING";
+            summary = String.format("WARNING: %d task(s) reached Dead Letter Queue (DLQ).", deadLetterCount);
+        } else if (queuedTasks > 25) {
+            status = "DEGRADED";
+            summary = String.format("DEGRADED: High backlog detected (%d items waiting).", queuedTasks);
+        }
+
+        return Map.of(
+                "status", status,
+                "humanReadableSummary", summary,
+                "timestamp", LocalDateTime.now()
         );
     }
 
-    @GetMapping("/tasks")
-    public List<Task> getTasks() {
-        return taskRepository.findAll();
-    }
-
-    @GetMapping("/tasks/{taskId}")
-    public Task getTask(@PathVariable UUID taskId) {
-
-        return taskRepository.findById(taskId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Task not found: " + taskId
-                        )
-                );
-    }
-
-    @GetMapping("/tasks/{taskId}/events")
-    public List<Event> getTaskEvents(
-            @PathVariable UUID taskId
-    ) {
-
-        return eventRepository
-                .findByTaskIdOrderByCreatedAtAsc(taskId);
-    }
-
-    @GetMapping("/workers")
-    public List<WorkerEntity> getWorkers() {
-        return workerManager.getWorkers();
-    }
-
-    @GetMapping("/workers/{workerId}")
-    public WorkerEntity getWorker(
-            @PathVariable String workerId
-    ) {
-        return workerManager.getWorker(workerId);
-    }
-
-    @PostMapping("/workers/{workerId}/stop")
-    public String stopWorker(
-            @PathVariable String workerId
-    ) {
-
+    // R-15 / Thing 04: Break-It-On-Purpose endpoints[cite: 1]
+    @PostMapping("/simulate/kill-worker")
+    public Map<String, String> killWorkerMidTask(@RequestParam String workerId) {
         workerManager.stopWorker(workerId);
-
-        return "Worker " + workerId + " stopped";
-    }
-
-    @PostMapping("/workers/{workerId}/restart")
-    public String restartWorker(
-            @PathVariable String workerId
-    ) {
-
-        workerManager.restartWorker(workerId);
-
-        return "Worker " + workerId + " restart requested";
+        return Map.of("message", "Worker " + workerId + " hard-killed mid-execution.");
     }
 
     @PostMapping("/failures/mode")
-    public FailureMode setFailureMode(
-            @RequestParam FailureMode mode
-    ) {
-
+    public Map<String, String> setFailureMode(@RequestParam FailureMode mode) {
         failureSimulator.setMode(mode);
-
-        return failureSimulator.getMode();
-    }
-
-    @GetMapping("/failures/mode")
-    public FailureMode getFailureMode() {
-        return failureSimulator.getMode();
-    }
-
-    public record OperatorStatus(
-            long totalTasks,
-            long acceptedTasks,
-            long processingTasks,
-            long completedTasks,
-            long retryingTasks,
-            long deadLetterTasks,
-            FailureMode failureMode,
-            List<WorkerEntity> workers
-    ) {
+        return Map.of("message", "System failure mode set to: " + mode);
     }
 }

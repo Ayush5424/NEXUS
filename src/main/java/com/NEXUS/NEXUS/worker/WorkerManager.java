@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class WorkerManager {
@@ -20,23 +21,50 @@ public class WorkerManager {
 
     @PostConstruct
     public void initialize() {
-
         createIfMissing("worker-1");
         createIfMissing("worker-2");
         createIfMissing("worker-3");
     }
 
     private void createIfMissing(String workerId) {
-
         if (!workerRepository.existsById(workerId)) {
+            WorkerEntity worker = new WorkerEntity(
+                    workerId,
+                    MAX_RESTARTS
+            );
+            workerRepository.save(worker);
+        }
+    }
 
-            workerRepository.save(
-                    new WorkerEntity(
-                            workerId,
-                            MAX_RESTARTS
-                    )
+    @Transactional
+    public WorkerEntity createWorker(String workerId) {
+
+        if (workerId == null || workerId.isBlank()) {
+            throw new IllegalArgumentException("Worker ID cannot be empty");
+        }
+
+        if (workerRepository.existsById(workerId)) {
+            throw new IllegalArgumentException(
+                    "Worker already exists: " + workerId
             );
         }
+
+        WorkerEntity worker = new WorkerEntity(
+                workerId,
+                MAX_RESTARTS
+        );
+
+        return workerRepository.save(worker);
+    }
+
+    @Transactional
+    public void deleteWorker(String workerId) {
+        WorkerEntity worker = workerRepository.findById(workerId)
+                .orElseThrow(() -> new IllegalArgumentException("Worker not found: " + workerId));
+
+        // Delete managed entity and flush SQL DELETE immediately
+        workerRepository.delete(worker);
+        workerRepository.flush();
     }
 
     public List<WorkerEntity> getWorkers() {
@@ -44,7 +72,6 @@ public class WorkerManager {
     }
 
     public WorkerEntity getWorker(String workerId) {
-
         return workerRepository.findById(workerId)
                 .orElseThrow(() ->
                         new IllegalArgumentException(
@@ -55,8 +82,13 @@ public class WorkerManager {
 
     @Transactional
     public void heartbeat(String workerId) {
+        Optional<WorkerEntity> optionalWorker = workerRepository.findById(workerId);
 
-        WorkerEntity worker = getWorker(workerId);
+        if (optionalWorker.isEmpty()) {
+            return;
+        }
+
+        WorkerEntity worker = optionalWorker.get();
 
         if (worker.getStatus() == WorkerStatus.RUNNING) {
             worker.heartbeat();
@@ -66,8 +98,13 @@ public class WorkerManager {
 
     @Transactional
     public void recordFailure(String workerId) {
+        Optional<WorkerEntity> optionalWorker = workerRepository.findById(workerId);
 
-        WorkerEntity worker = getWorker(workerId);
+        if (optionalWorker.isEmpty()) {
+            return;
+        }
+
+        WorkerEntity worker = optionalWorker.get();
 
         worker.recordFailure();
 
@@ -80,7 +117,6 @@ public class WorkerManager {
 
     @Transactional
     public void stopWorker(String workerId) {
-
         WorkerEntity worker = getWorker(workerId);
 
         worker.stop();
@@ -90,15 +126,11 @@ public class WorkerManager {
 
     @Transactional
     public void restartWorker(String workerId) {
-
         WorkerEntity worker = getWorker(workerId);
 
         if (worker.getRestartCount() >= worker.getMaxRestarts()) {
-
             worker.markOutOfService();
-
         } else {
-
             worker.markRestarting();
             worker.restart();
         }
@@ -108,27 +140,28 @@ public class WorkerManager {
 
     @Transactional
     public void checkWorkerHealth(String workerId) {
+        Optional<WorkerEntity> optionalWorker = workerRepository.findById(workerId);
 
-        WorkerEntity worker = getWorker(workerId);
+        if (optionalWorker.isEmpty()) {
+            return;
+        }
+
+        WorkerEntity worker = optionalWorker.get();
 
         if (worker.getStatus() != WorkerStatus.RUNNING) {
             return;
         }
 
-        LocalDateTime timeout =
-                LocalDateTime.now().minusSeconds(10);
+        LocalDateTime timeout = LocalDateTime.now().minusSeconds(10);
 
-        if (worker.getLastHeartbeat().isBefore(timeout)) {
+        if (worker.getLastHeartbeat() != null &&
+                worker.getLastHeartbeat().isBefore(timeout)) {
 
             worker.markRestarting();
-            workerRepository.save(worker);
 
             if (worker.getRestartCount() < worker.getMaxRestarts()) {
-
                 worker.restart();
-
             } else {
-
                 worker.markOutOfService();
             }
 

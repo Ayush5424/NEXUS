@@ -1,25 +1,29 @@
 package com.NEXUS.NEXUS.event;
 
-
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/tasks")
+@RequestMapping("/operator/events")
 public class EventController {
 
-    private final EventStore eventStore;
+    private final EventService eventService;
 
-    public EventController(EventStore eventStore) {
-        this.eventStore = eventStore;
+    public EventController(EventService eventService) {
+        this.eventService = eventService;
     }
 
-    @GetMapping("/{taskId}/events")
-    public List<Event> getTaskEvents(
+    @GetMapping
+    public List<Event> getEvents() {
+        return eventService.getRecentEvents();
+    }
+
+    @GetMapping("/{taskId}")
+    public List<Event> getTimeline(
             @PathVariable UUID taskId
     ) {
-        return eventStore.getTaskHistory(taskId);
+        return eventService.getTaskTimeline(taskId);
     }
 }

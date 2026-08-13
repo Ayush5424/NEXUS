@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class WorkerService implements Worker {
@@ -20,6 +21,9 @@ public class WorkerService implements Worker {
     private final EventStore eventStore;
     private final WorkerManager workerManager;
     private final FailureSimulator failureSimulator;
+
+    private final AtomicInteger workerIndex =
+            new AtomicInteger(0);
 
     public WorkerService(
             TaskRepository taskRepository,
@@ -100,13 +104,20 @@ public class WorkerService implements Worker {
 
     private WorkerEntity selectWorker() {
 
-        return workerManager.getWorkers()
-                .stream()
-                .filter(worker ->
-                        worker.getStatus() ==
-                                WorkerStatus.RUNNING)
-                .findFirst()
-                .orElse(null);
+        List<WorkerEntity> workers =
+                getAvailableWorkers();
+
+        if (workers.isEmpty()) {
+            return null;
+        }
+
+        int index =
+                Math.abs(
+                        workerIndex
+                                .getAndIncrement()
+                ) % workers.size();
+
+        return workers.get(index);
     }
 
     public List<WorkerEntity> getAvailableWorkers() {
@@ -134,14 +145,12 @@ public class WorkerService implements Worker {
                 );
     }
 
-    // Kept for compatibility with WorkerController
     public void enableFailure() {
         failureSimulator.setMode(
                 com.NEXUS.NEXUS.operator.FailureMode.FAIL
         );
     }
 
-    // Kept for compatibility with WorkerController
     public void disableFailure() {
         failureSimulator.setMode(
                 com.NEXUS.NEXUS.operator.FailureMode.NORMAL
