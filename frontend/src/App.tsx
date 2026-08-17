@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-const API = "http://localhost:8080";
+const API = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
 
 type Worker = {
   workerId: string;

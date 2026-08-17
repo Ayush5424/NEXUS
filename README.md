@@ -4,6 +4,8 @@ NEXUS is a local, single-machine task orchestration platform for the NEXUS Engin
 
 The system is intentionally small: Spring Boot + JPA + file-backed H2 for the backend, and React/Vite for the operator UI. It does not require cloud services, hosted queues, hosted databases, login, or internet access at runtime.
 
+For Render deployment, the backend uses Render Postgres through `DATABASE_URL`. The local H2 database is only the no-setup local fallback.
+
 ## Start On A Clean Machine
 
 Prerequisites:
@@ -147,6 +149,28 @@ Defaults are local and offline:
 - `NEXUS_CACHE_MAX_AGE_SECONDS=60`
 
 PostgreSQL remains available for local experiments through `DATABASE_URL` and `DB_DRIVER`, but it is not required for the challenge path.
+
+## Deploy On Render
+
+The repository includes `render.yaml` and `Dockerfile` for Render.
+
+1. Push this repository to GitHub.
+2. In Render, create a new Blueprint from the GitHub repo.
+3. Render provisions:
+   - `nexus-db` as managed Render Postgres.
+   - `nexus-api` as a Docker web service.
+   - `nexus-operator` as a static Vite site.
+4. The API receives `DATABASE_URL` from `nexus-db`. Render gives this as `postgresql://...`; NEXUS converts it to the JDBC URL Spring needs at startup.
+5. The frontend receives `VITE_API_BASE_URL` from the API service's public `RENDER_EXTERNAL_URL`.
+
+Do not set `DATABASE_URL` to the local H2 path on Render. The Blueprint wires it from Render Postgres automatically.
+
+Important Render environment variables:
+
+- `DATABASE_URL`: provided from `nexus-db`.
+- `DB_DRIVER=org.postgresql.Driver`
+- `CORS_ALLOWED_ORIGIN_PATTERNS=http://localhost:5173,https://*.onrender.com`
+- `VITE_API_BASE_URL`: copied from `nexus-api` `RENDER_EXTERNAL_URL` at static-site build time.
 
 ## Tests
 

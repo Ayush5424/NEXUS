@@ -1,0 +1,41 @@
+databases:
+  - name: nexus-db
+    plan: free
+    databaseName: nexus
+    user: nexus
+
+services:
+  - type: web
+    name: nexus-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: APP_NAME
+        value: NEXUS
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nexus-db
+          property: connectionString
+      - key: DB_DRIVER
+        value: org.postgresql.Driver
+      - key: NEXUS_DISPATCH_BATCH_SIZE
+        value: 25
+      - key: NEXUS_CACHE_MAX_AGE_SECONDS
+        value: 60
+      - key: CORS_ALLOWED_ORIGIN_PATTERNS
+        value: "http://localhost:5173,https://*.onrender.com"
+
+  - type: web
+    name: nexus-operator
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: nexus-api
+          envVarKey: RENDER_EXTERNAL_URL
