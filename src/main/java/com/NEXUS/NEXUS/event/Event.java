@@ -22,6 +22,9 @@ public class Event {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(columnDefinition = "TEXT")
+    private String details;
+
     public Event() {
     }
 
@@ -29,6 +32,7 @@ public class Event {
         this.taskId = taskId;
         this.type = type;
         this.createdAt = LocalDateTime.now();
+        this.details = details;
     }
 
     public UUID getId() {
@@ -45,5 +49,9 @@ public class Event {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public String getDetails() {
+        return details;
     }
 }

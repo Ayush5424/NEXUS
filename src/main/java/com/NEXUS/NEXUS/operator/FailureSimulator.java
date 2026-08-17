@@ -16,6 +16,18 @@ public class FailureSimulator {
     }
 
     public boolean shouldFail() {
-        return mode == FailureMode.FAIL;
+        return mode == FailureMode.FAIL || mode == FailureMode.DEPENDENCY_DOWN;
+    }
+
+    public boolean shouldRunSlowly() {
+        return mode == FailureMode.SLOW;
+    }
+
+    public boolean isDependencyDown() {
+        return mode == FailureMode.DEPENDENCY_DOWN;
+    }
+
+    public boolean hasCacheDisagreement() {
+        return mode == FailureMode.CACHE_DISAGREE;
     }
 }

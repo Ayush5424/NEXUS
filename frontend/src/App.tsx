@@ -25,12 +25,23 @@ type Task = {
 type Event = {
   id: string;
   type: string;
+  details: string;
   createdAt: string;
 };
 
 type Diagnostics = {
   status: "HEALTHY" | "WARNING" | "DEGRADED" | "CRITICAL";
   humanReadableSummary: string;
+  abnormalBelief: string;
+  oldestQueuedAgeSeconds: number | "NONE";
+  activeRelease: string;
+  cache: {
+    ageSeconds: number;
+    maxAgeSeconds: number;
+    sourceAvailable: boolean;
+    disagreement: boolean;
+    servedMode: string;
+  };
   timestamp: string;
 };
 
@@ -223,33 +234,21 @@ function App() {
         </div>
       ) : (
         <>
-          {/* R-12: Plain-Language Diagnostic Conclusion Banner */}
           {diagnostics && (
             <div
               className={`diagnostic-banner status-${diagnostics.status.toLowerCase()}`}
-              style={{
-                padding: "16px",
-                borderRadius: "8px",
-                marginBottom: "20px",
-                color: "#fff",
-                fontWeight: "bold",
-                backgroundColor:
-                  diagnostics.status === "CRITICAL"
-                    ? "#e53e3e"
-                    : diagnostics.status === "WARNING"
-                    ? "#dd6b20"
-                    : diagnostics.status === "DEGRADED"
-                    ? "#3182ce"
-                    : "#38a169",
-              }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div className="diagnostic-topline">
                 <span>OPERATOR DIAGNOSTIC ASSESSMENT (90-Sec Rule)</span>
                 <small>{new Date(diagnostics.timestamp).toLocaleTimeString()}</small>
               </div>
-              <p style={{ fontSize: "1.1rem", marginTop: "8px", marginBottom: 0 }}>
-                {diagnostics.humanReadableSummary}
-              </p>
+              <p>{diagnostics.humanReadableSummary}</p>
+              <div className="diagnostic-details">
+                <span>Belief: {diagnostics.abnormalBelief}</span>
+                <span>Oldest queued: {diagnostics.oldestQueuedAgeSeconds}s</span>
+                <span>Release: {diagnostics.activeRelease}</span>
+                <span>Cache: {diagnostics.cache.servedMode}</span>
+              </div>
             </div>
           )}
 
@@ -285,6 +284,24 @@ function App() {
                   onClick={() => changeFailureMode("FAIL")}
                 >
                   FAIL MODE
+                </button>
+                <button
+                  className={failureMode === "SLOW" ? "active" : ""}
+                  onClick={() => changeFailureMode("SLOW")}
+                >
+                  SLOW
+                </button>
+                <button
+                  className={failureMode === "DEPENDENCY_DOWN" ? "danger active" : "danger"}
+                  onClick={() => changeFailureMode("DEPENDENCY_DOWN")}
+                >
+                  DEP DOWN
+                </button>
+                <button
+                  className={failureMode === "CACHE_DISAGREE" ? "active" : ""}
+                  onClick={() => changeFailureMode("CACHE_DISAGREE")}
+                >
+                  CACHE DIFF
                 </button>
               </div>
             </section>
@@ -415,6 +432,7 @@ function App() {
                     <span className="event-dot"></span>
                     <div>
                       <b>{event.type}</b>
+                      {event.details && <span className="event-details">{event.details}</span>}
                       <small>{new Date(event.createdAt).toLocaleTimeString()}</small>
                     </div>
                   </div>

@@ -62,11 +62,13 @@ public class WorkerService implements Worker {
 
             if (failureSimulator.shouldFail()) {
                 throw new RuntimeException(
-                        "Simulated worker failure"
+                        failureSimulator.isDependencyDown()
+                                ? "Simulated dependency unavailable"
+                                : "Simulated worker failure"
                 );
             }
 
-            Thread.sleep(1000);
+            Thread.sleep(failureSimulator.shouldRunSlowly() ? 5000 : 1000);
 
             task.markCompleted();
             taskRepository.save(task);

@@ -1,5 +1,7 @@
 package com.NEXUS.NEXUS.worker;
 
+import com.NEXUS.NEXUS.event.EventService;
+import com.NEXUS.NEXUS.event.EventType;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,9 +16,11 @@ public class WorkerManager {
     private static final int MAX_RESTARTS = 3;
 
     private final WorkerRepository workerRepository;
+    private final EventService eventService;
 
-    public WorkerManager(WorkerRepository workerRepository) {
+    public WorkerManager(WorkerRepository workerRepository, EventService eventService) {
         this.workerRepository = workerRepository;
+        this.eventService = eventService;
     }
 
     @PostConstruct
@@ -110,6 +114,10 @@ public class WorkerManager {
 
         if (worker.getRestartCount() >= worker.getMaxRestarts()) {
             worker.markOutOfService();
+            eventService.record(
+                    EventType.WORKER_OUT_OF_SERVICE,
+                    "Worker " + workerId + " exceeded restart budget after task failure"
+            );
         }
 
         workerRepository.save(worker);
@@ -122,6 +130,10 @@ public class WorkerManager {
         worker.stop();
 
         workerRepository.save(worker);
+        eventService.record(
+                EventType.WORKER_STOPPED,
+                "Operator stopped worker " + workerId
+        );
     }
 
     @Transactional
@@ -130,9 +142,19 @@ public class WorkerManager {
 
         if (worker.getRestartCount() >= worker.getMaxRestarts()) {
             worker.markOutOfService();
+            eventService.record(
+                    EventType.WORKER_OUT_OF_SERVICE,
+                    "Worker " + workerId + " is out of service; restart budget exhausted"
+            );
         } else {
             worker.markRestarting();
             worker.restart();
+            eventService.record(
+                    EventType.WORKER_RESTARTED,
+                    "Operator restarted worker " + workerId +
+                            " attempt " + worker.getRestartCount() +
+                            "/" + worker.getMaxRestarts()
+            );
         }
 
         workerRepository.save(worker);
@@ -161,8 +183,18 @@ public class WorkerManager {
 
             if (worker.getRestartCount() < worker.getMaxRestarts()) {
                 worker.restart();
+                eventService.record(
+                        EventType.WORKER_RESTARTED,
+                        "Health monitor restarted stale worker " + workerId +
+                                " attempt " + worker.getRestartCount() +
+                                "/" + worker.getMaxRestarts()
+                );
             } else {
                 worker.markOutOfService();
+                eventService.record(
+                        EventType.WORKER_OUT_OF_SERVICE,
+                        "Health monitor marked stale worker " + workerId + " out of service"
+                );
             }
 
             workerRepository.save(worker);

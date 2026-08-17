@@ -152,11 +152,43 @@ button {
   display: flex;
   flex-direction: column;
   padding: 18px 24px;
-  border-radius: 12px;
+  border-radius: 8px;
   margin-bottom: 24px;
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow-md);
   animation: fadeIn 0.3s ease-in-out;
+}
+
+.diagnostic-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+
+.diagnostic-banner p {
+  margin: 8px 0 10px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.diagnostic-details {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.diagnostic-details span {
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.18);
+  overflow-wrap: anywhere;
 }
 
 .diagnostic-banner.status-healthy {
@@ -536,6 +568,14 @@ button {
   font-family: var(--font-mono);
 }
 
+.event-details {
+  display: block;
+  margin: 2px 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
 /* ==========================================================================
    Task Queue Table
    ========================================================================== */
@@ -626,6 +666,9 @@ footer {
   .metrics {
     grid-template-columns: repeat(3, 1fr);
   }
+  .diagnostic-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .grid {
     grid-template-columns: 1fr;
   }
@@ -645,5 +688,12 @@ footer {
   }
   .task-form {
     flex-direction: column;
+  }
+  .diagnostic-topline {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .diagnostic-details {
+    grid-template-columns: 1fr;
   }
 }

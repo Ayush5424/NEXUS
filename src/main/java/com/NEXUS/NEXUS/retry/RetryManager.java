@@ -25,7 +25,7 @@ public class RetryManager {
     public void handleFailure(Task task) {
 
         if (task.getAttemptCount() + 1 >= task.getMaxAttempts()) {
-            task.markDeadLetter();
+            task.markDeadLetterFromFailure();
             taskRepository.save(task);
             eventStore.record(
                     task.getId(),
@@ -46,10 +46,6 @@ public class RetryManager {
 
         LocalDateTime nextAttemptAt =
                 LocalDateTime.now().plusSeconds(delaySeconds);
-
-        task.markRetrying(nextAttemptAt);
-
-        taskRepository.save(task);
 
         task.markRetrying(nextAttemptAt);
         taskRepository.save(task);

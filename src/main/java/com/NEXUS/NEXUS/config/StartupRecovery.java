@@ -32,9 +32,13 @@ public class StartupRecovery implements CommandLineRunner {
             for (Task task : pendingTasks) {
                 task.setStatus(TaskStatus.ACCEPTED); // Re-queue task
                 taskRepository.save(task);
+                eventService.record(
+                        task.getId(),
+                        EventType.TASK_RECOVERED,
+                        "Startup recovery reset task from PROCESSING to ACCEPTED"
+                );
             }
 
-            // Fixed: Replaced eventService.logEvent with eventService.record
             eventService.record(
                     EventType.SYSTEM_ALERT,
                     "STARTUP RECOVERY: Reset " + pendingTasks.size() + " orphaned processing tasks back to ACCEPTED."

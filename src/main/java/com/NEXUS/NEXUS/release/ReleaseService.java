@@ -20,16 +20,23 @@ public class ReleaseService {
 
     @Transactional
     public Release deployRelease(String version) {
+        String rollbackVersion = releaseRepository.findFirstByStatusOrderByIdDesc("ACTIVE")
+                .map(Release::getVersion)
+                .orElse("v1.0.0-INITIAL");
+
         releaseRepository.findFirstByStatusOrderByIdDesc("ACTIVE")
                 .ifPresent(active -> {
                     active.setStatus("SUPERSEDED");
                     releaseRepository.save(active);
                 });
 
-        Release newRelease = releaseRepository.save(new Release(version, "ACTIVE"));
+        Release newRelease = releaseRepository.save(new Release(version, "ACTIVE", rollbackVersion));
 
-        // Use record() instead of logEvent()
-        eventService.record(EventType.SYSTEM_ALERT, "Deployed release version: " + version);
+        eventService.record(
+                EventType.RELEASE_DEPLOYED,
+                "Deployed release version " + version +
+                        " with rollback target " + rollbackVersion
+        );
 
         return newRelease;
     }
@@ -43,14 +50,13 @@ public class ReleaseService {
         releaseRepository.save(active);
 
         Release targetRelease = releaseRepository.findFirstByStatusOrderByIdDesc("SUPERSEDED")
-                .orElseGet(() -> new Release("v1.0.0-INITIAL", "ACTIVE"));
+                .orElseGet(() -> new Release(active.getRollbackVersion(), "ACTIVE", "v1.0.0-INITIAL"));
 
         targetRelease.setStatus("ACTIVE");
         Release restored = releaseRepository.save(targetRelease);
 
-        // Use record() instead of logEvent()
         eventService.record(
-                EventType.SYSTEM_ALERT,
+                EventType.RELEASE_ROLLED_BACK,
                 "RELEASE ROLLED BACK: Reverted from " + active.getVersion() + " to " + restored.getVersion()
         );
 

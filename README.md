@@ -1,77 +1,158 @@
-NEXUS
-Fault-Tolerant Task Orchestration & System Health Platform
+# NEXUS
 
-NEXUS is a fault-tolerant task orchestration platform designed to process tasks reliably while monitoring worker health, handling failures, retrying failed tasks, and maintaining an auditable event timeline.
+NEXUS is a local, single-machine task orchestration platform for the NEXUS Engineering Challenge. It accepts work through an HTTP API, persists accepted work before acknowledgement, dispatches it to logical workers, retries bounded failures with backoff, dead-letters exhausted work, records durable history, and exposes an operator console for diagnosis.
 
-It also provides an operator-facing dashboard for real-time visibility into workers, tasks, failures, retries, and system health.
+The system is intentionally small: Spring Boot + JPA + file-backed H2 for the backend, and React/Vite for the operator UI. It does not require cloud services, hosted queues, hosted databases, login, or internet access at runtime.
 
-Overview
-NEXUS helps operators submit and track tasks, observe worker status, and understand how the system behaves during failures.
-It is built to remain operational even when individual workers fail, while keeping a clear history of task execution.
-imulate failures for testing.
+## Start On A Clean Machine
 
+Prerequisites:
 
-Architecture
-text
+- Java 21
+- Node.js and npm, only if running the frontend console
 
-                    ┌──────────────────────┐
-                    │      Operator UI     │
-                    │   React + TypeScript  │
-                    └──────────┬───────────┘
-                               │
-                               │ REST API
-                               ▼
-                    ┌──────────────────────┐
-                    │    Spring Boot API   │
-                    │      NEXUS Core      │
-                    └──────────┬───────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              │                │                │
-              ▼                ▼                ▼
-        ┌──────────┐      ┌──────────┐    ┌──────────┐
-        │ Worker 1 │      │ Worker 2 │    │ Worker N │
-        └──────────┘      └──────────┘    └──────────┘
-              │                │                │
-              └────────────────┼────────────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │      PostgreSQL      │
-                    │ Tasks                │
-                    │ Workers              │
-                    │ Events               │
-                    └──────────────────────┘
-Technology Stack
-  Backend
-   Java 21
-   Spring Boot
-   Spring Web
-   Spring Data JPA
-   Hibernate
-   Maven
-   PostgreSQL
-  
-  Frontend
-   React
-   TypeScript
-   Vite
-   CSS
-  
-  Development Tools
-   Git
-   GitHub
+Backend, including local persisted storage:
 
-Project Goals:
-  NEXUS was designed around four major goals:
-  - Reliability
-  - Fault tolerance
-  - Observability
-  - Explainability
+```powershell
+cd C:\Users\dell\Downloads\NEXUS\NEXUS
+.\mvnw.cmd spring-boot:run
+```
 
-Author
-- Ayush Abhinav
-- B.Tech Computer Science & Engineering
+Successful startup shows Spring Boot listening on port `8080`. The default database is `.\data\nexus.mv.db`; accepted work, events, workers, and releases survive backend restart.
 
-License
-This project is intended for educational, demonstration, and portfolio purposes.
+Operator UI:
+
+```powershell
+cd C:\Users\dell\Downloads\NEXUS\NEXUS\frontend
+npm run dev
+```
+
+Open the Vite URL, normally `http://localhost:5173`. The UI reads the backend at `http://localhost:8080`.
+
+## Core API
+
+Create work:
+
+```powershell
+Invoke-RestMethod -Method Post http://localhost:8080/tasks `
+  -Headers @{"Idempotency-Key"="demo-1"} `
+  -ContentType "application/json" `
+  -Body '{"type":"EMAIL","payload":"hello"}'
+```
+
+Get operator diagnosis:
+
+```powershell
+Invoke-RestMethod http://localhost:8080/operator/diagnostics
+```
+
+See tasks, events, workers, and releases:
+
+```powershell
+Invoke-RestMethod http://localhost:8080/operator/tasks
+Invoke-RestMethod http://localhost:8080/operator/events
+Invoke-RestMethod http://localhost:8080/operator/workers
+Invoke-RestMethod http://localhost:8080/operator/releases
+```
+
+## Failure Scenarios
+
+Kill a logical worker:
+
+```powershell
+Invoke-RestMethod -Method Post "http://localhost:8080/operator/simulate/kill-worker?workerId=worker-1"
+```
+
+Stop/restart while accepted work exists:
+
+1. Submit work.
+2. Stop the Spring Boot process.
+3. Restart with `.\mvnw.cmd spring-boot:run`.
+4. Check `/operator/tasks` and `/operator/events`; stranded `PROCESSING` work is reset to `ACCEPTED` and records `TASK_RECOVERED`.
+
+Make workers fail every task:
+
+```powershell
+Invoke-RestMethod -Method Post "http://localhost:8080/operator/failures/mode?mode=FAIL"
+```
+
+Make workers slow:
+
+```powershell
+Invoke-RestMethod -Method Post "http://localhost:8080/operator/failures/mode?mode=SLOW"
+```
+
+Deliver duplicate work:
+
+```powershell
+# Run this twice with the same Idempotency-Key.
+Invoke-RestMethod -Method Post http://localhost:8080/tasks `
+  -Headers @{"Idempotency-Key"="duplicate-demo"} `
+  -ContentType "application/json" `
+  -Body '{"type":"EMAIL","payload":"same work"}'
+```
+
+Push a bad release and roll it back:
+
+```powershell
+Invoke-RestMethod -Method Post "http://localhost:8080/operator/releases/deploy?version=v2.0.0-bad"
+Invoke-RestMethod -Method Post "http://localhost:8080/operator/releases/undo"
+```
+
+Make cached value disagree with source:
+
+```powershell
+Invoke-RestMethod -Method Post "http://localhost:8080/operator/failures/mode?mode=CACHE_DISAGREE"
+Invoke-RestMethod http://localhost:8080/operator/cache
+```
+
+Remove dependency:
+
+```powershell
+Invoke-RestMethod -Method Post "http://localhost:8080/operator/failures/mode?mode=DEPENDENCY_DOWN"
+Invoke-RestMethod http://localhost:8080/operator/diagnostics
+```
+
+Return to normal:
+
+```powershell
+Invoke-RestMethod -Method Post "http://localhost:8080/operator/failures/mode?mode=NORMAL"
+```
+
+## Backlog
+
+Submit many items by looping over unique idempotency keys. Dispatch is capped by `nexus.dispatch.batch-size` so recovery does not flood the worker executor.
+
+```powershell
+1..1000 | ForEach-Object {
+  Invoke-RestMethod -Method Post http://localhost:8080/tasks `
+    -Headers @{"Idempotency-Key"="bulk-$_"} `
+    -ContentType "application/json" `
+    -Body "{`"type`":`"EMAIL`",`"payload`":`"bulk-$_`"}" | Out-Null
+}
+```
+
+Watch `/operator/diagnostics` for queued count and oldest queued age.
+
+## Configuration
+
+Defaults are local and offline:
+
+- `PORT=8080`
+- `DATABASE_URL=jdbc:h2:file:./data/nexus;AUTO_SERVER=FALSE;DB_CLOSE_DELAY=-1`
+- `DB_USERNAME=sa`
+- `DB_PASSWORD=`
+- `DB_DRIVER=org.h2.Driver`
+- `NEXUS_DISPATCH_BATCH_SIZE=25`
+- `NEXUS_CACHE_MAX_AGE_SECONDS=60`
+
+PostgreSQL remains available for local experiments through `DATABASE_URL` and `DB_DRIVER`, but it is not required for the challenge path.
+
+## Tests
+
+```powershell
+cd C:\Users\dell\Downloads\NEXUS\NEXUS
+.\mvnw.cmd test
+```
+
+The automated tests cover duplicate acceptance, retry/backoff/dead-letter behavior, startup recovery, release rollback, cache disagreement, dependency degradation, worker restart budget, and operator-visible incident state.
