@@ -27,7 +27,7 @@ public final class RenderDatabaseUrlAdapter {
         URI uri = URI.create(databaseUrl);
         String[] credentials = parseCredentials(uri);
         String jdbcUrl = "jdbc:postgresql://" + uri.getHost() +
-                ":" + uri.getPort() +
+                port(uri) +
                 uri.getPath() +
                 queryString(uri);
 
@@ -53,6 +53,10 @@ public final class RenderDatabaseUrlAdapter {
     private static String queryString(URI uri) {
         String query = uri.getQuery();
         return query == null || query.isBlank() ? "" : "?" + query;
+    }
+
+    private static String port(URI uri) {
+        return uri.getPort() == -1 ? "" : ":" + uri.getPort();
     }
 
     private static void setIfMissing(String key, String value) {
