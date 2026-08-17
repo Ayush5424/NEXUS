@@ -5,7 +5,7 @@
 Built:
 
 - Local persisted task intake and dispatch.
-- Render deployment blueprint with managed Render Postgres for hosted deployment.
+- Render deployment blueprint that accepts an external Neon Postgres connection string for hosted deployment.
 - Idempotency-key based duplicate detection.
 - Bounded retry with exponential backoff.
 - Dead-letter terminal state.
@@ -27,7 +27,7 @@ Chosen:
 
 - Spring Boot + JPA because the existing project already used it.
 - File-backed H2 by default so a reviewer can run offline with one backend command.
-- Render Postgres for hosted deployment so production does not depend on a local database file.
+- Neon Postgres for hosted deployment so production does not depend on a local database file or the workspace's single Render free Postgres slot.
 - Idempotency keys retained indefinitely in the local database; duplicate detection lasts as long as the database file is kept.
 - Bounded dispatch batches to avoid recovery storms.
 - Durable event rows for platform actions and operator actions.
@@ -86,7 +86,7 @@ Assumptions:
 
 - Reviewers run the backend from the project root so the H2 file appears at `.\data\nexus.mv.db`.
 - Idempotency-key retention equals database retention.
-- Render deployments are created from `render.yaml`, which provisions `nexus-db` and injects `DATABASE_URL`.
+- Render deployments are created from `render.yaml`, and `DATABASE_URL` is supplied from Neon.
 
 ## Next
 

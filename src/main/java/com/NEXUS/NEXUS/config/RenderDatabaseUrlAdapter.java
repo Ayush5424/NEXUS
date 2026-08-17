@@ -28,7 +28,8 @@ public final class RenderDatabaseUrlAdapter {
         String[] credentials = parseCredentials(uri);
         String jdbcUrl = "jdbc:postgresql://" + uri.getHost() +
                 ":" + uri.getPort() +
-                uri.getPath();
+                uri.getPath() +
+                queryString(uri);
 
         setIfMissing("spring.datasource.url", jdbcUrl);
         setIfMissing("spring.datasource.username", credentials[0]);
@@ -47,6 +48,11 @@ public final class RenderDatabaseUrlAdapter {
         String username = parts[0];
         String password = parts.length > 1 ? parts[1] : "";
         return new String[]{username, password};
+    }
+
+    private static String queryString(URI uri) {
+        String query = uri.getQuery();
+        return query == null || query.isBlank() ? "" : "?" + query;
     }
 
     private static void setIfMissing(String key, String value) {

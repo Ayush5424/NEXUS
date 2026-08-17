@@ -1,9 +1,3 @@
-databases:
-  - name: nexus-db
-    plan: free
-    databaseName: nexus
-    user: nexus
-
 services:
   - type: web
     name: nexus-api
@@ -15,9 +9,7 @@ services:
       - key: APP_NAME
         value: NEXUS
       - key: DATABASE_URL
-        fromDatabase:
-          name: nexus-db
-          property: connectionString
+        sync: false
       - key: DB_DRIVER
         value: org.postgresql.Driver
       - key: NEXUS_DISPATCH_BATCH_SIZE
