@@ -6,6 +6,9 @@ The system is intentionally small: Spring Boot + JPA + file-backed H2 for the ba
 
 For Render deployment, the backend uses Neon Postgres through `DATABASE_URL`. The local H2 database is only the no-setup local fallback.
 
+#Live Demo
+- https://nexus-operator.onrender.com/
+
 ## Start On A Clean Machine
 
 Prerequisites:
